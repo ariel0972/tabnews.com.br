@@ -1,6 +1,6 @@
 import { getLogger } from '@tabnews/infra';
 
-export default getLogger({
+export default await getLogger({
   nestedKey: 'payload',
   redact: {
     paths: [

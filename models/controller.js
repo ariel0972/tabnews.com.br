@@ -43,6 +43,7 @@ function onNoMatchHandler(request, response) {
 
   const privateErrorObject = { ...publicErrorObject, context: { ...request.context } };
   logger.info(snakeize(privateErrorObject));
+  sendLogsAfterClose(response);
 
   return errorResponse(response, publicErrorObject.statusCode, snakeize(publicErrorObject));
 }
@@ -101,7 +102,7 @@ function errorResponse(response, statusCode, publicErrorObject) {
   const isStream = response.getHeader('Content-Type') === 'application/x-ndjson';
   if (isStream) {
     response.write(JSON.stringify(publicErrorObject) + '\n');
-    response.end();
+    return response.end();
   }
 
   return response.json(publicErrorObject);
@@ -118,17 +119,20 @@ function logRequest(request, response, next) {
 
   logger.info(log);
 
-  let resolve;
-  const flushPromise = new Promise((res) => (resolve = res));
-
-  waitUntil(flushPromise);
-
-  response.on('close', async () => {
-    await logger.flush();
-    resolve();
-  });
+  sendLogsAfterClose(response);
 
   return next();
+}
+
+function sendLogsAfterClose(response) {
+  waitUntil(
+    new Promise((resolve) => {
+      response.on('close', async () => {
+        await logger.flush();
+        resolve();
+      });
+    }),
+  );
 }
 
 const headersToRedact = ['authorization', 'cookie'];
